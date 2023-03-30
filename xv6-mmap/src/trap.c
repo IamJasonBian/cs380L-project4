@@ -7,12 +7,121 @@
 #include "x86.h"
 #include "traps.h"
 #include "spinlock.h"
+#include "mmap.h"
 
 // Interrupt descriptor table (shared by all CPUs).
 struct gatedesc idt[256];
 extern uint vectors[];  // in vectors.S: array of 256 entry pointers
 struct spinlock tickslock;
 uint ticks;
+
+
+void
+pagefault_handler(struct trapframe *tf)
+{
+  struct proc *curproc = myproc();
+  uint fault_addr = rcr2(); //Control Register 2, holds the faulting page address.
+
+  // Start -- Required debugging statement -----
+  cprintf("============in pagefault_handler============\n");
+  cprintf("pid %d %s: trap %d err %d on cpu %d "
+  "eip 0x%x addr 0x%x\n",
+  curproc->pid, curproc->name, tf->trapno,
+  tf->err, cpuid(), tf->eip, fault_addr);
+  // End -- Required debugging statement ----
+
+  // Validate that the faulting address belongs to a valid mmap region
+  // (check curproc linked list)
+  int valid = 0;
+  mmapped_region *mmap_node = curproc->region_head;
+
+  //round the faulting address down to the page start.
+  fault_addr = PGROUNDDOWN(fault_addr);
+
+  while(mmap_node)
+  {
+    //if (fault_addr == (uint)mmap_node->start_addr)
+    if ((uint)(mmap_node->start_addr) <= fault_addr && (uint)(mmap_node->start_addr + mmap_node->length) > fault_addr)
+    { 
+      if ((mmap_node->prot & PROT_WRITE) || !(tf->err & T_ERR_PGFLT_W)) 
+      {
+        valid = 1;
+      }
+      break; //leave the loop once we found a valid entry
+    }
+    else
+    {
+      mmap_node = mmap_node->next;
+    }
+  }
+
+  // Map a single page around the faulting address.
+  // Allocation based off of allocuvm from vm.c
+  if (valid == 1)
+  {
+    char *mem;
+    mem = kalloc();
+
+    if(mem == 0)
+    {
+      goto error;
+    }
+    memset(mem, 0, PGSIZE);
+
+    // determine protection bits needed for mappages() call
+    int perm;
+    if (mmap_node->prot == PROT_WRITE)
+    {
+      perm = PTE_W|PTE_U; //give write permissions
+    }
+    else
+    {
+      perm = PTE_U; //do not give write permissions
+    }
+
+    if(mappages(curproc->pgdir, (char*)fault_addr, PGSIZE, V2P(mem), perm) < 0)
+    {
+      kfree(mem);
+      goto error;
+    }
+
+    switchuvm(curproc);
+
+    // If we are performing file-backed mmap, seek to where we need to in the
+    // file and then read it into the memory location allocated above (mem)
+    if (mmap_node->region_type == MAP_FILE)
+    {
+      if (curproc->ofile[mmap_node->fd])
+      {
+        fileseek(curproc->ofile[mmap_node->fd], mmap_node->offset);
+        fileread(curproc->ofile[mmap_node->fd], mem, mmap_node->length);
+        //Clear the dirty bit after read:
+          pde_t* pde = &(myproc()->pgdir)[PDX(mmap_node->start_addr)];
+          pte_t* pgtab = (pte_t*)P2V(PTE_ADDR(*pde));
+          pte_t* pte = &pgtab[PTX(mmap_node->start_addr)];
+
+          *pte &= ~PTE_D;
+      }
+    }
+  }
+  else  //Page fault on a non-allocated address
+  {
+    error:
+      if(myproc() == 0 || (tf->cs&3) == 0){
+        // In kernel, it must be our mistake.
+        cprintf("unexpected trap %d from cpu %d eip %x (cr2=0x%x)\n",
+                tf->trapno, cpuid(), tf->eip, rcr2());
+        panic("trap");
+      }
+      // In user space, assume process misbehaved.
+      cprintf("pid %d %s: trap %d err %d on cpu %d "
+              "eip 0x%x addr 0x%x--kill proc\n",
+              myproc()->pid, myproc()->name, tf->trapno,
+              tf->err, cpuid(), tf->eip, rcr2());
+      myproc()->killed = 1;
+  }
+}
+
 
 void
 tvinit(void)
