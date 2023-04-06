@@ -34,6 +34,7 @@ struct context {
 
 enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
+enum region_types {ANONYMOUS, FILE_BACKED};
 
 typedef struct mmapped_region 
 { 
@@ -43,10 +44,9 @@ typedef struct mmapped_region
   //Region Meta-Data:
   void* start_addr; //starting address for mapped region 
   uint length;      //length of allocated region
-  int region_type; //anonymous of file-backed
+  enum region_types region_type; //anonymous of file-backed
   int offset;      //offset in a file-backed allocation
   int fd;          //file descriptor (-1 for anonymous allocation)
-  int prot;        //protection bits for the mapped region (default is read-only)
 } mmapped_region;
 
 // Per-process state
@@ -64,8 +64,8 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
-  int nregions;
-  mmapped_region *region_head;
+  int nregions;                // number of allocated regions
+  mmapped_region *region_head; // head of mapped region list
 };
 
 // Process memory is laid out contiguously, low addresses first:

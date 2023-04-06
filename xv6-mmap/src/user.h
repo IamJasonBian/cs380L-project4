@@ -23,9 +23,10 @@ int getpid(void);
 char* sbrk(int);
 int sleep(int);
 int uptime(void);
+void* kmalloc(uint);
+void kmfree(void*);
 void* mmap(void *addr, uint length, uint prot, uint flags, uint fd, uint offset);
 int munmap(void *addr, uint length);
-int msync(void*, uint);
 void* kmalloc(uint);
 void kmfree(void*);
 

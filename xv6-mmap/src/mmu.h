@@ -94,7 +94,6 @@ struct segdesc {
 #define PTE_P           0x001   // Present
 #define PTE_W           0x002   // Writeable
 #define PTE_U           0x004   // User
-#define PTE_D			0x040
 #define PTE_PS          0x080   // Page Size
 
 // Address in page table or page directory entry
@@ -102,7 +101,7 @@ struct segdesc {
 #define PTE_FLAGS(pte)  ((uint)(pte) &  0xFFF)
 
 #ifndef __ASSEMBLER__
-//typedef uint pte_t;
+typedef uint pte_t;
 
 // Task state segment format
 struct taskstate {

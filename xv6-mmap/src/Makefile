@@ -191,8 +191,8 @@ UPROGS=\
 	_test_7\
 	_zombie\
 
-fs.img: mkfs README sample.txt $(UPROGS)
-	./mkfs fs.img README sample.txt $(UPROGS)
+fs.img: mkfs README $(UPROGS)
+	./mkfs fs.img README $(UPROGS)
 
 -include *.d
 
