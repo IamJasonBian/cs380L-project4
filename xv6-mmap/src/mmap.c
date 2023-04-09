@@ -7,13 +7,11 @@
 #include "mmu.h"
 #include "proc.h"
 
-/*  File containing implementation of mmap and munmap
- *  for the xv6 kernel memory allocator.
- *  
- *  This implementation of mmap uses a singley linked list to track the 
+/*  
+ *  This implementation of mmap uses a single linked list to track the 
  *  allocated regions of memeory.
  *  List nodes are allocated using kmalloc (from kmalloc.c)
- *  The process' address space is increased using allocuvm() (form vm.c)
+ *  The process address space is increased using allocuvm() -vm.c
  */ 
 #define NULL (mmapped_region*)0
 //#define DEBUG
@@ -77,10 +75,10 @@ void *mmap(void *addr, uint length, int prot, int flags, int fd, int offset)
   r->start_addr = (addr = (void*)PGROUNDDOWN(oldsz));
   r->length = length;
   r->region_type = ANONYMOUS;
-  r->offset = offset;
-  //r->fd = -1; // TODO: This value ends up dictating the address of our ll nodes on later iterations??
-                // eg: when fd = -1, future calls to mmap make the node addresses 0xFFFFFFFF(hex for -1)
+  r->offset = offset; 
   r->next = 0;
+
+  //r->fd = -1;
 
   // Handle first call to mmap
   if (p->nregions == 0)
@@ -173,10 +171,9 @@ int munmap(void *addr, uint length)
 
     if(p->region_head->next != 0)
     {
-      /* Calls to kmfree were changing the node->next's length value
-       * in the linked-list. This is a hacky fix, but I don't know
-       * what is really causing that problem... */
+      
       size = p->region_head->next->length;
+      
       ll_delete(p->region_head, 0);
       p->region_head->length = size;
     }
@@ -270,19 +267,19 @@ static void ll_print()
 
   if (n == 0)
   {
-    cprintf("Linked list is empty\n");
+    printf("Linked list is empty\n");
+    return;
   }
-  else
-  {
-    cprintf("Numer of regions allocated: %d\n", n);
-    cprintf("Head Region Address: %x\tHead Region Length: %d\n", (int)head->start_addr, head->length);
 
-    mmapped_region *cursor = head;
-    for (int i = 1; i <= n; i++)
-    {
-      cprintf("Region #: %d\tRegion Address: %x\tRegion Length: %d\n", i, cursor->start_addr, cursor->length);
-      cursor = cursor->next;
-    }
+  printf("Number of regions allocated: %d\n", n);
+  printf("Head Region Address: %p\tHead Region Length: %d\n", head->start_addr, head->length);
+
+  mmapped_region *cursor = head;
+  for (int i = 1; i <= n; i++)
+  {
+    printf("Region #: %d\tRegion Address: %p\tRegion Length: %d\n", i, cursor->start_addr, cursor->length);
+    cursor = cursor->next;
   }
 }
+
 #endif

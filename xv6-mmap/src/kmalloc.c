@@ -52,7 +52,12 @@ morecore(uint nu)
   char *p;
   Header *hp;
 
-  p = kalloc();
+  //allocate memory with kalloc
+  p = (char*)kalloc();
+  if (p == 0) {
+      return 0;
+  }
+
   if(p == 0)
     return 0;
   hp = (Header*)p;
@@ -80,7 +85,10 @@ kmalloc(uint nbytes)
   for(p = prevp->s.ptr; ; prevp = p, p = p->s.ptr){
     if(p->s.size >= nunits){
       if(p->s.size == nunits)
+      
         prevp->s.ptr = p->s.ptr;
+
+
       else {
         p->s.size -= nunits;
         p += p->s.size;
